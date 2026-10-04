@@ -1,0 +1,27 @@
+# BigWigsMods/packager configuration.
+#
+# The addon source lives under addon/GuildPhone/ so that this repository can
+# also hold the companion app and the test suite. CurseForge needs a zip whose
+# single top-level directory is GuildPhone/, so the folder is moved up during
+# packaging. The move source is written relative to the package name, which is
+# what "GuildPhone/addon/GuildPhone" means - the first segment is the package,
+# not a second copy of the addon.
+package-as: GuildPhone
+
+move-folders:
+  GuildPhone/addon/GuildPhone: GuildPhone
+
+# Everything that is not shipped to players. addon/tests is Lua that stubs the
+# WoW API and would never run in game; .github and .pkgmeta are build plumbing.
+ignore:
+  - addon/tests
+  - .github
+  - README.md
+  - .gitignore
+
+# The changelog is written by hand, in the same voice as the release notes the
+# project has always published. An auto-generated list of commit subjects is
+# not something a player can read.
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown

@@ -1,0 +1,77 @@
+# Packages the addon and uploads it to CurseForge.
+#
+# WHY THERE IS NO pull_request TRIGGER, AND WHY YOU MUST NOT ADD ONE.
+#
+# This repository is public, so anybody can fork it and open a pull request.
+# A pull request may change this file. If this workflow ran on pull_request,
+# a stranger's first contribution could be a one-line edit that prints
+# CF_API_KEY into the build log, or POSTs it somewhere, and the publishing
+# credential for the CurseForge project would be gone before the review
+# started. That is not a hypothetical: it is the hole that was removed from
+# the platform repository as issue #46.
+#
+# So: tags and a manual button only. Both require write access to this
+# repository, which a fork does not have.
+#
+# Pull request validation is still wanted, and it is safe, because it needs
+# no credentials. It lives in tests.yml, which holds no secrets and must
+# never acquire one.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write        # the packager creates the GitHub release
+
+jobs:
+  # The tests run first and in their own job, so the job that can see the
+  # credential does as little as possible.
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y lua5.1
+      - env:
+          GP_ADDON: addon/GuildPhone
+        run: |
+          set -e
+          for t in serialize_test remind_test name_test; do lua5.1 "addon/tests/$t.lua"; done
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+
+    # CF_API_KEY is scoped to this job alone - nothing else in the run can
+    # read it - and it is referenced in exactly one place, below, as an
+    # environment variable. It is never echoed and never passed on a command
+    # line, where it would appear in the process list and the build log.
+    #
+    # The packager reads CF_API_KEY directly (release.sh line 494), so the
+    # secret name and the variable name are the same and there is no mapping
+    # step that could leak it.
+    #
+    # RECOMMENDED, not configured here because it is the operator's to set:
+    # add a GitHub environment with required reviewers to this job, so that
+    # pushing a tag proposes a release rather than shipping one.
+    # environment: curseforge
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The packager derives the version and the changelog range from the
+          # tag history. A shallow clone has neither.
+          fetch-depth: 0
+
+      - name: Package and upload to CurseForge
+        uses: BigWigsMods/packager@v2
+        env:
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # -p is the CurseForge project id, from
+          # https://www.curseforge.com/wow/addons/guild-phone and matching
+          # ## X-Curse-Project-ID in the TOC.
+          args: -p 1720217

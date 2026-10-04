@@ -1,0 +1,15 @@
+## Interface: 16001
+## Title: |cff58a6ffGuildPhone|r
+## Notes: Export your guild roster, and claim your character with a code from guildphone.com.|n|cffff8800For WoW: Forever only.|r
+## Author: guildphone
+## Version: 2.2.3
+## SavedVariables: GuildPhoneDB
+## X-Website: https://guildphone.com
+## X-Curse-Project-ID: 1720217
+
+Export.lua
+Diag.lua
+Remind.lua
+Auto.lua
+UI.lua
+Options.lua

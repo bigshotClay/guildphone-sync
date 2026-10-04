@@ -1,0 +1,82 @@
+# The Lua test suite. This workflow handles untrusted code - a pull request
+# from a fork runs whatever that fork wrote - so it holds NO secrets and
+# references none. Nothing may be added here that needs one. If a check ever
+# needs a credential, it belongs in a separate workflow that pull requests
+# cannot trigger; see release.yml for why.
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lua:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The addon runs in WoW's Lua 5.1. Testing it on any other version
+      # tests a language the game does not have.
+      - name: Install Lua 5.1
+        run: sudo apt-get update && sudo apt-get install -y lua5.1
+
+      # The tests locate the addon through GP_ADDON, defaulting to the layout
+      # used in the platform repository. Set it explicitly so the default is
+      # never what is under test.
+      - name: Unit tests (WoW API stubbed)
+        env:
+          GP_ADDON: addon/GuildPhone
+        run: |
+          set -e
+          for t in serialize_test remind_test name_test; do
+            echo "--- $t"
+            lua5.1 "addon/tests/$t.lua"
+          done
+
+      # The generators are fixtures for the platform's import tests. They are
+      # exercised here too, because a generator that stops producing a valid
+      # export is a broken addon, not a broken fixture.
+      - name: Export generators produce a GP1 export
+        env:
+          GP_ADDON: addon/GuildPhone
+        run: |
+          set -e
+          lua5.1 addon/tests/gen_export.lua | head -1 | grep -q '^GP1|'
+          lua5.1 addon/tests/gen_solo.lua   | head -1 | grep -q '^GP1|'
+          AUTH=1 DROP=0 lua5.1 addon/tests/gen_variants.lua | head -1 | grep -q '^GP1|'
+
+      # Every Lua file must parse under 5.1, including the ones the unit tests
+      # do not load.
+      - name: Syntax check every Lua file
+        run: find addon -name '*.lua' -print0 | xargs -0 -n1 luac5.1 -p
+
+  toc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The two fields that make a CurseForge release work at all. X-Website
+      # pointed at a private repository once and 404d for everybody who
+      # clicked it; the project ID is what the upload is filed against.
+      - name: TOC carries the fields CurseForge needs
+        run: |
+          set -e
+          TOC=addon/GuildPhone/GuildPhone.toc
+          grep -q '^## Interface: ' "$TOC"
+          grep -q '^## Version: '   "$TOC"
+          grep -q '^## X-Curse-Project-ID: 1720217' "$TOC"
+          grep -q '^## X-Website: https://guildphone.com' "$TOC"
+          echo "TOC ok: $(grep '^## Version:' $TOC)"
+
+      # Nothing about the platform host, the database or any credential may
+      # reach a public repository through the addon.
+      - name: No host or credential detail in shipped files
+        run: |
+          if grep -rniE '40\.160\.36|debian@|/opt/guildphone|127\.0\.0\.1|BEGIN [A-Z ]*PRIVATE KEY' addon .pkgmeta; then
+            echo "FAIL: host or credential detail present"; exit 1
+          fi
+          echo "clean"
