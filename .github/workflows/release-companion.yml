@@ -1,0 +1,123 @@
+# Publishes the companion app: the source and its checksum, nothing compiled.
+#
+# WHAT A RELEASE IS, AND WHY IT IS NOT A BINARY.
+#
+# There is no packaged executable and there is not going to be one. An
+# unsigned download from a publisher nobody has heard of gets "Windows
+# protected your PC" from SmartScreen, and teaching a sceptical player to
+# click past that box is the exact habit a scam needs them to have. Windows
+# users install Python 3 from the Microsoft Store, which Microsoft signs,
+# and then run the same readable script macOS and Linux run. So a release
+# here is guildphone-sync.py and a SHA256SUMS covering it. Do not add
+# PyInstaller: the artifact IS the source, and that is the point of the
+# repository being public.
+#
+# WHY THERE IS NO pull_request TRIGGER, AND WHY YOU MUST NOT ADD ONE.
+#
+# This repository is public, so anybody can fork it and open a pull request,
+# and a pull request may change this file. A workflow that runs on
+# pull_request and holds write permission lets a stranger's first
+# contribution publish a release, or rewrite the asset a published release
+# points at. That is the hole that was removed from the platform repository
+# as issue #46, and the same reasoning that keeps it out of release.yml
+# keeps it out of here. Tags and a manual button only: both need write
+# access to this repository, which a fork does not have.
+#
+# THERE IS NO SECRET IN THIS FILE, AND THERE MUST NOT BE ONE.
+#
+# This publishes a GitHub release, not to CurseForge, so it needs no
+# credential of any kind - there is no `secrets.` reference anywhere below,
+# deliberately, and that absence is worth recording next to a workflow that
+# could plausibly have had one. The automatic token is reached as
+# github.token with contents: write, which is scoped to this repository and
+# this run. If something here ever appears to need a repository secret, that
+# is a sign the job is doing more than publishing source, not a reason to
+# add one.
+#
+# WHY THE TAG IS sync-v*, NOT v*.
+#
+# v* already belongs to the addon: release.yml packages it and uploads to
+# CurseForge, and BigWigsMods/packager cuts the GitHub release for that tag
+# itself. Two workflows publishing the same tag would race for one release,
+# and the addon and the companion do not version together anyway. So the
+# companion gets its own prefix.
+name: release-companion
+
+on:
+  push:
+    tags: ['sync-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write        # create the release and attach the two files
+
+jobs:
+  # Checks run in their own job and first, so publishing does as little as
+  # possible. There is nothing to compile, so this is what "it builds" means
+  # for a script: it parses, and it answers for itself on the command line.
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: It parses, and it is standard library only
+        run: |
+          set -e
+          python3 -m py_compile guildphone-sync.py
+          python3 guildphone-sync.py --help > /dev/null
+          # A dependency would make "Python 3 and nothing else" false, and
+          # the README and the portal both promise exactly that. Names are
+          # taken from the parse tree and matched whole: a grep with a list
+          # of allowed substrings passes `import requests` on the strength
+          # of "re", which is how this check was first written and why it is
+          # now written like this.
+          python3 .github/stdlib-only.py guildphone-sync.py
+
+      - name: No host or credential detail in the published script
+        run: |
+          if grep -rniE '40\.160\.36|debian@|/opt/guildphone|127\.0\.0\.1|BEGIN [A-Z ]*PRIVATE KEY' guildphone-sync.py; then
+            echo "FAIL: host or credential detail present"; exit 1
+          fi
+          echo "clean"
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # SHA256SUMS is written in the format shasum -c and sha256sum -c read,
+      # so verifying is one command next to the downloaded file rather than
+      # an eyeball comparison of two hex strings.
+      - name: Checksum the source
+        run: |
+          set -e
+          sha256sum guildphone-sync.py | tee SHA256SUMS
+          sha256sum -c SHA256SUMS
+
+      - name: Publish the release
+        env:
+          # The automatic per-run token, not a repository secret. See above.
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_type == 'tag' && github.ref_name || format('sync-manual-{0}', github.run_number) }}
+        run: |
+          set -e
+          # Written to a file rather than inline, so the notes can contain
+          # the indented command a reader is meant to copy.
+          {
+            echo "The companion app, as source. There is no executable; see the README."
+            echo
+            echo "Verify the download next to SHA256SUMS:"
+            echo
+            echo '    sha256sum -c SHA256SUMS'
+            echo
+            echo "Windows: install Python 3 from the Microsoft Store, then run the script."
+          } > notes.md
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "companion $TAG" \
+            --notes-file notes.md \
+            guildphone-sync.py SHA256SUMS

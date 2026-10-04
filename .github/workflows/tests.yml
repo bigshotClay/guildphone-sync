@@ -80,3 +80,39 @@ jobs:
             echo "FAIL: host or credential detail present"; exit 1
           fi
           echo "clean"
+
+  companion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # The companion is one stdlib-only file. There is nothing to build, so
+      # the checks a pull request can run are: it parses, it answers --help,
+      # it needs no packages, and it carries no host detail. The same three
+      # run again in release-companion.yml before anything is published.
+      - name: It parses and answers for itself
+        run: |
+          set -e
+          python3 -m py_compile guildphone-sync.py
+          python3 guildphone-sync.py --help > /dev/null
+
+      - name: Standard library only
+        run: python3 .github/stdlib-only.py guildphone-sync.py
+
+      - name: The flags the portal tells people to type exist
+        run: |
+          set -e
+          for f in token url wow once interval force install uninstall; do
+            grep -q -- "\"--$f\"" guildphone-sync.py || { echo "FAIL: --$f gone"; exit 1; }
+          done
+          echo "all flags present"
+
+      - name: No host or credential detail
+        run: |
+          if grep -rniE '40\.160\.36|debian@|/opt/guildphone|127\.0\.0\.1|BEGIN [A-Z ]*PRIVATE KEY' guildphone-sync.py; then
+            echo "FAIL: host or credential detail present"; exit 1
+          fi
+          echo "clean"
