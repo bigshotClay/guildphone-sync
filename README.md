@@ -85,6 +85,25 @@ built from a commit you can read.
 Guild Phone is a real PBX for guilds. It is **in-game only** — it does not
 connect to real telephone networks and has **no emergency service**.
 
+### Releasing
+
+Bump `## Version` in `addon/GuildPhone/GuildPhone.toc`, add the entry to
+`CHANGELOG.md`, then tag:
+
+```sh
+git tag v2.2.4 && git push --tags
+```
+
+`release.yml` packages with
+[BigWigsMods/packager](https://github.com/BigWigsMods/packager) and uploads
+to CurseForge project 1720217. The TOC version and the tag are separate
+things and both matter: CurseForge rejects a duplicate `## Version`, and the
+tag is what the file is named after.
+
+On **4 November 2026** WoW: Forever launches and the interface number moves
+off 16001. Nothing may be released after that date until `## Interface:` has
+been checked against the launch client.
+
 ### Running the addon tests
 
 `addon/tests/` runs the addon under real Lua 5.1 with the WoW API stubbed,
