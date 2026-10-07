@@ -168,6 +168,61 @@ function GP.Diag()
     end
 
     out("")
+    out("--- ROLES: can the game tell us, instead of us inferring it? ---")
+    -- WHY THIS SECTION EXISTS. character_roles() on the server is derived from
+    -- raid signups in the last 90 days, because nothing told us what a character
+    -- actually is. That makes a player's role rooms come and go with their raid
+    -- commitments, which is a guess about intent standing in for a fact about
+    -- the character.
+    --
+    -- Reported on the WoW discord, Oct 2026: "WoW Forever shares Mainline WoW's
+    -- UI architecture, including the vast majority of APIs available in 12.1.5
+    -- ... Forever and modern WoW (Midnight) are two game types within the
+    -- Mainline code family."
+    --
+    -- That is a claim about where the code lives, NOT about what the game has.
+    -- Forever reports interface 16001 for client 1.60.1 - a 1.6x, vanilla-era
+    -- game type - and vanilla has talent builds, not specialisations with
+    -- assigned roles. So these symbols may exist and return nothing meaningful,
+    -- or not exist at all. Either answer is useful; assuming one is not.
+    probe("GetSpecialization()",          GetSpecialization)
+    probe("GetSpecializationInfo(1)",     GetSpecializationInfo, 1)
+    probe("GetSpecializationRole(1)",     GetSpecializationRole, 1)
+    probe("GetNumSpecializations()",      GetNumSpecializations)
+    probe("UnitGroupRolesAssigned('player')", UnitGroupRolesAssigned, "player")
+    probe("GetTalentTabInfo(1)",          GetTalentTabInfo, 1)
+    probe("GetNumTalentTabs()",           GetNumTalentTabs)
+    probe("UnitClass('player')",          UnitClass, "player")
+    probe("UnitLevel('player')",          UnitLevel, "player")
+    if type(C_SpecializationInfo) == "table" then
+        local names = {}
+        for k in pairs(C_SpecializationInfo) do names[#names+1] = k end
+        table.sort(names)
+        out("  C_SpecializationInfo has %d members: %s", #names,
+            table.concat(names, ", "))
+    else
+        out("  C_SpecializationInfo is %s", type(C_SpecializationInfo))
+    end
+
+    out("")
+    out("--- which API family is this really? ---")
+    -- One line per namespace we would reach for if the Mainline surface is
+    -- genuinely present. Presence alone is the question; what they return is
+    -- the next question and not this one.
+    for _, ns in ipairs({ "C_GuildInfo", "C_Club", "C_ClassColor", "C_CVar",
+                          "C_Timer", "C_BattleNet", "C_FriendList",
+                          "C_SpecializationInfo", "C_PlayerInfo",
+                          "C_Traits", "C_AddOns", "C_UnitAuras" }) do
+        out("  %-24s %s", ns, type(_G[ns]))
+    end
+    -- WOW_PROJECT_ID is how Mainline distinguishes its game types. If Forever is
+    -- one of them it should have an id here, and that is a far better gate than
+    -- the interface RANGE Export.lua matches on today.
+    probe("WOW_PROJECT_ID",               function() return WOW_PROJECT_ID end)
+    probe("WOW_PROJECT_MAINLINE",         function() return WOW_PROJECT_MAINLINE end)
+    probe("WOW_PROJECT_CLASSIC",          function() return WOW_PROJECT_CLASSIC end)
+
+    out("")
     out("=== end ===")
     out("Saved to GuildPhoneDB.diag - /reload then copy it out of")
     out("WTF/Account/<id>/SavedVariables/GuildPhone.lua")

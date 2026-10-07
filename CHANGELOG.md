@@ -4,6 +4,21 @@ Newest first. Each entry names what was actually wrong, because somebody who
 tried a version and gave up needs to know the thing that defeated them is
 fixed, and that it was not their fault.
 
+## 2.2.4
+
+**Diagnostics only. Nothing you do with the addon has changed.**
+
+Exporting, claiming and the login reminder are untouched, and an export from
+2.2.3 is identical to one from this build. There is no reason to hurry.
+
+`/gpdiag` now reports more about what your client can actually do — whether it
+has specialisations and roles, which modern namespaces it carries, and what game
+type it says it is. We ask because Guild Phone currently works out your raid role
+from what you have signed up for, which is a guess. If your client can simply
+tell us, it should.
+
+If anybody asks you to run `/gpdiag`, this is the version worth having.
+
 ## 2.2.3
 
 **It now tells you what to do when you log in.**
